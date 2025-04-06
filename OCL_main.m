@@ -3,44 +3,47 @@ clear;close;
 
 load('m1d00');load('m2d00');load('m3d00');load('m4d00');
 
-train_mode1_norm=m1d00(1:500,1:54)';
-train_mode2_norm=m2d00(1:500,1:54)';
-train_mode3_norm=m3d00(1:500,1:54)';
-train_mode4_norm=m4d00(1:500,1:54)';
+train_mode1_norm=m1d00(1:200,1:54)';
+train_mode2_norm=m2d00(1:200,1:54)';
+train_mode3_norm=m3d00(1:200,1:54)';
+train_mode4_norm=m4d00(1:200,1:54)';
 
 train_mode_set={train_mode1_norm;train_mode2_norm;train_mode3_norm;train_mode4_norm};
 
 %将四个矩阵按照行拼接在一起
 train_mode_norm=[train_mode1_norm;train_mode2_norm;train_mode3_norm;train_mode4_norm];
+
+
+
 %标准化数据，使用zscore函数
 %data_normalized=zscore(train_mode_norm);%data_normalized为标准化后的数据矩阵
-% 使用AHC聚类
-
-% Step 1: 计算距离矩阵（欧几里得距离）
-euclidean_distancae = pdist(train_mode_norm, 'euclidean');  % 'euclidean' 计算欧几里得距离
-
-% Step 2: 使用 linkage 函数进行层次聚类
-% 使用 'single' 表示单链法（Single Linkage），也可以使用 'complete', 'average' 等其他方法
-C_tree = linkage(euclidean_distancae, 'single');  % 返回的 Z 是一个层次聚类树
-
-% Step 3: 绘制树状图（dendrogram），以帮助选择聚类的数量
-% dendrogram(C_tree);  % 可以看到树状图
-
-% Step 4: 根据树状图确定聚类的数量，假设我们选择了 S 个簇
-mdoe_nember = 4;  % 假设我们决定选择 3 个簇
-
-% Step 5: 切割树状图，获得最终的聚类标签
-T = cluster(C_tree, 'maxclust', mdoe_nember);  % 'maxclust' 用于指定簇的数量
+% % 使用AHC聚类
+% 
+% % Step 1: 计算距离矩阵（欧几里得距离）
+% euclidean_distancae = pdist(train_mode_norm, 'euclidean');  % 'euclidean' 计算欧几里得距离
+% 
+% % Step 2: 使用 linkage 函数进行层次聚类
+% % 使用 'single' 表示单链法（Single Linkage），也可以使用 'complete', 'average' 等其他方法
+% C_tree = linkage(euclidean_distancae, 'single');  % 返回的 Z 是一个层次聚类树
+% 
+% % Step 3: 绘制树状图（dendrogram），以帮助选择聚类的数量
+% % dendrogram(C_tree);  % 可以看到树状图
+% 
+% % Step 4: 根据树状图确定聚类的数量，假设我们选择了 S 个簇
+% mdoe_nember = 4;  % 假设我们决定选择 3 个簇
+% 
+% % Step 5: 切割树状图，获得最终的聚类标签
+% T = cluster(C_tree, 'maxclust', mdoe_nember);  % 'maxclust' 用于指定簇的数量
 
 %%计算模态内邻接矩阵 拉普拉斯矩阵
 W_intra=cell(mdoe_nember,1);
 L_intra=cell(mdoe_nember,1);
 W_D=cell(mdoe_nember,1);
 W_A=cell(mdoe_nember,1);
-train_mode1_norm_for_L=(m1d00(1:500,1:54));
-train_mode2_norm_for_L=(m2d00(1:500,1:54));
-train_mode3_norm_for_L=(m3d00(1:500,1:54));
-train_mode4_norm_for_L=(m4d00(1:500,1:54));
+train_mode1_norm_for_L=(m1d00(1:200,1:54));
+train_mode2_norm_for_L=(m2d00(1:200,1:54));
+train_mode3_norm_for_L=(m3d00(1:200,1:54));
+train_mode4_norm_for_L=(m4d00(1:200,1:54));
 train_mode_set_for_L={train_mode1_norm_for_L;train_mode2_norm_for_L;train_mode3_norm_for_L;train_mode4_norm_for_L};
 for i=1:mdoe_nember
     % 计算模态内邻接矩阵
@@ -83,9 +86,13 @@ lambda = 1; % 例如，lambda 可能是给定的正则化常数
 gamma = 1;  % 设置 gamma
 beta = 1;   % 设置 beta
 alpha = 1;    % 假设 alpha 的值
+% 构造块对角矩阵 L_total
+%L_total = blkdiag(L_intra{:});  % 将每个模态的拉普拉斯矩阵以对角矩阵形式拼接
+
+
 L_total = zeros(size(L_intra{1}));
 for i = 1:mdoe_nember
-    L_total = L_total + L_intra{i};  % 累加每个模态的拉普拉斯矩阵
+     L_total = L_total + L_intra{i};  % 累加每个模态的拉普拉斯矩阵
 end
 
 
@@ -131,7 +138,8 @@ for iter=1:max_iter
     Z_diff = Z_minus_I * Z_minus_I';
     A = X*(gamma * Z_diff + beta * L_total)*X';
     [eigVectors, eigValues] = eig(A);  % 求解矩阵 A 的特征值和特征向量
-    [~, idx] = sort(diag(eigValues), 'descend');  % 根据特征值排序
+
+    [~, idx] = sort(diag(eigValues));  % 根据特征值排序
     P = eigVectors(:, idx(1:lower_dim));  % 选择最大的 lower_dim 个特征向量
 
     %%更新辅助变量和参数
@@ -189,6 +197,8 @@ plot(1:max_iter, Lambda_norm);
 title('Convergence of Lambda');
 xlabel('Iteration');
 ylabel('Norm of Lambda');
+
+
 
 
 

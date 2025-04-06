@@ -3,12 +3,10 @@ clear;close;
 
 load('m1d00');load('m2d00');load('m3d00');load('m4d00');
 
-train_mode1_norm=m1d00(1:500,1:54)';
-train_mode2_norm=m2d00(1:500,1:54)';
-train_mode3_norm=m3d00(1:500,1:54)';
-train_mode4_norm=m4d00(1:500,1:54)';
-
-train_mode1_norm=zs
+train_mode1_norm=m1d00(1:200,1:54)';
+train_mode2_norm=m2d00(1:200,1:54)';
+train_mode3_norm=m3d00(1:200,1:54)';
+train_mode4_norm=m4d00(1:200,1:54)';
 
 train_mode_set={train_mode1_norm;train_mode2_norm;train_mode3_norm;train_mode4_norm};
 
@@ -39,10 +37,10 @@ W_intra=cell(mdoe_nember,1);
 L_intra=cell(mdoe_nember,1);
 W_D=cell(mdoe_nember,1);
 W_A=cell(mdoe_nember,1);
-train_mode1_norm_for_L=zscore(m1d00(1:500,1:54));
-train_mode2_norm_for_L=zscore(m2d00(1:500,1:54));
-train_mode3_norm_for_L=zscore(m3d00(1:500,1:54));
-train_mode4_norm_for_L=zscore(m4d00(1:500,1:54));
+train_mode1_norm_for_L=(m1d00(1:200,1:54)');
+train_mode2_norm_for_L=(m2d00(1:200,1:54)');
+train_mode3_norm_for_L=(m3d00(1:200,1:54)');
+train_mode4_norm_for_L=(m4d00(1:200,1:54)');
 train_mode_set_for_L={train_mode1_norm_for_L;train_mode2_norm_for_L;train_mode3_norm_for_L;train_mode4_norm_for_L};
 for i=1:mdoe_nember
     % 计算模态内邻接矩阵
@@ -57,7 +55,7 @@ lower_dim=20; %设定降维后的维度
 %获得训练数据的维度
 [dim,N_samples_of_all]=size(train_mode_norm);%N_samples_of_all为总样本数，dim为特征数
 
-X=train_mode_norm; %训练数据矩阵X
+X=train_mode_norm'; %训练数据矩阵X
 %初始化变量Z,N_samples_of_all*N_samples_of_all,Z为公共的低秩矩阵，不用堆叠
 Z=zeros(N_samples_of_all,N_samples_of_all);
 %初始化变量E,E的大小为dim*(N_samples_of_all)
@@ -65,7 +63,7 @@ E=zeros(dim,N_samples_of_all);
 %初始化变量J,J的大小为N_samples_of_all*N_samples_of_all,J为公共的低秩矩阵Z的辅助变量，不用堆叠
 J=zeros(N_samples_of_all,N_samples_of_all);
 %初始化变量P,P的大小为(N_samples_of_all)*lower_dim
-P=zeros(dim,lower_dim);
+P=rand(dim,lower_dim);
 %初始化辅助变量 \Gamma，大小和train_mode_norm一致
 Gamma=zeros(dim,N_samples_of_all);
 %初始化变量 \Lambda，大小和Z一致
@@ -85,10 +83,14 @@ lambda = 1; % 例如，lambda 可能是给定的正则化常数
 gamma = 1;  % 设置 gamma
 beta = 1;   % 设置 beta
 alpha = 1;    % 假设 alpha 的值
-L_total = zeros(size(L_intra{1}));
-for i = 1:mdoe_nember
-    L_total = L_total + L_intra{i};  % 累加每个模态的拉普拉斯矩阵
-end
+% 构造块对角矩阵 L_total
+L_total = blkdiag(L_intra{:});  % 将每个模态的拉普拉斯矩阵以对角矩阵形式拼接
+
+
+% L_total = zeros(size(L_intra{1}));
+% for i = 1:mdoe_nember
+%     L_total = L_total + L_intra{i};  % 累加每个模态的拉普拉斯矩阵
+% end
 
 
 % 初始化记录变量收敛的数组
@@ -133,7 +135,8 @@ for iter=1:max_iter
     Z_diff = Z_minus_I * Z_minus_I';
     A = X*(gamma * Z_diff + beta * L_total)*X';
     [eigVectors, eigValues] = eig(A);  % 求解矩阵 A 的特征值和特征向量
-    [~, idx] = sort(diag(eigValues), 'descend');  % 根据特征值排序
+
+    [~, idx] = sort(diag(eigValues));  % 根据特征值排序
     P = eigVectors(:, idx(1:lower_dim));  % 选择最大的 lower_dim 个特征向量
 
     %%更新辅助变量和参数
@@ -142,6 +145,7 @@ for iter=1:max_iter
     mu = min(rho * mu, mu_max);
 
     %% 记录每个变量的范数以便可视化收敛过程
+
     Z_norm(iter) = norm(Z, 'fro');
     E_norm(iter) = norm(E, 'fro');
     P_norm(iter) = norm(P, 'fro');
@@ -149,6 +153,7 @@ for iter=1:max_iter
     Gamma_norm(iter) = norm(Gamma, 'fro');
     Lambda_norm(iter) = norm(Lambda, 'fro');
     mu_values(iter) = mu;
+
     
 end
 % 可视化每个变量的收敛过程
@@ -190,12 +195,18 @@ title('Convergence of Lambda');
 xlabel('Iteration');
 ylabel('Norm of Lambda');
 
-% 可视化 mu 的收敛过程
-figure;
-plot(1:max_iter, mu_values);
-title('Convergence of mu');
-xlabel('Iteration');
-ylabel('mu');
+% 初始化每个簇的投影矩阵
+P_clusters = cell(mdoe_nember, 1);
+
+for i = 1:mdoe_nember
+    % 找到属于第 i 个簇的样本
+    cluster_idx = (T == i);  % 找到标签为 i 的样本索引
+    
+    % 根据这些样本索引提取投影矩阵的对应列
+    P_clusters{i} = P(cluster_idx, :);  % 按行提取对应的投影矩阵
+end
+
+
 
 function J_new = soft_thresholding(Z_lambda, threshold)
         % 对矩阵 Z_lambda 的奇异值进行软阈值操作
