@@ -8,6 +8,8 @@ train_mode2_norm=m2d00(1:500,1:54)';
 train_mode3_norm=m3d00(1:500,1:54)';
 train_mode4_norm=m4d00(1:500,1:54)';
 
+train_mode1_norm=zs
+
 train_mode_set={train_mode1_norm;train_mode2_norm;train_mode3_norm;train_mode4_norm};
 
 %将四个矩阵按照行拼接在一起
@@ -37,10 +39,10 @@ W_intra=cell(mdoe_nember,1);
 L_intra=cell(mdoe_nember,1);
 W_D=cell(mdoe_nember,1);
 W_A=cell(mdoe_nember,1);
-train_mode1_norm_for_L=(m1d00(1:500,1:54));
-train_mode2_norm_for_L=(m2d00(1:500,1:54));
-train_mode3_norm_for_L=(m3d00(1:500,1:54));
-train_mode4_norm_for_L=(m4d00(1:500,1:54));
+train_mode1_norm_for_L=zscore(m1d00(1:500,1:54));
+train_mode2_norm_for_L=zscore(m2d00(1:500,1:54));
+train_mode3_norm_for_L=zscore(m3d00(1:500,1:54));
+train_mode4_norm_for_L=zscore(m4d00(1:500,1:54));
 train_mode_set_for_L={train_mode1_norm_for_L;train_mode2_norm_for_L;train_mode3_norm_for_L;train_mode4_norm_for_L};
 for i=1:mdoe_nember
     % 计算模态内邻接矩阵
@@ -63,7 +65,7 @@ E=zeros(dim,N_samples_of_all);
 %初始化变量J,J的大小为N_samples_of_all*N_samples_of_all,J为公共的低秩矩阵Z的辅助变量，不用堆叠
 J=zeros(N_samples_of_all,N_samples_of_all);
 %初始化变量P,P的大小为(N_samples_of_all)*lower_dim
-P=rand(dim,lower_dim);
+P=zeros(dim,lower_dim);
 %初始化辅助变量 \Gamma，大小和train_mode_norm一致
 Gamma=zeros(dim,N_samples_of_all);
 %初始化变量 \Lambda，大小和Z一致
@@ -140,7 +142,6 @@ for iter=1:max_iter
     mu = min(rho * mu, mu_max);
 
     %% 记录每个变量的范数以便可视化收敛过程
-
     Z_norm(iter) = norm(Z, 'fro');
     E_norm(iter) = norm(E, 'fro');
     P_norm(iter) = norm(P, 'fro');
@@ -148,7 +149,6 @@ for iter=1:max_iter
     Gamma_norm(iter) = norm(Gamma, 'fro');
     Lambda_norm(iter) = norm(Lambda, 'fro');
     mu_values(iter) = mu;
-
     
 end
 % 可视化每个变量的收敛过程
@@ -190,7 +190,12 @@ title('Convergence of Lambda');
 xlabel('Iteration');
 ylabel('Norm of Lambda');
 
-
+% 可视化 mu 的收敛过程
+figure;
+plot(1:max_iter, mu_values);
+title('Convergence of mu');
+xlabel('Iteration');
+ylabel('mu');
 
 function J_new = soft_thresholding(Z_lambda, threshold)
         % 对矩阵 Z_lambda 的奇异值进行软阈值操作
